@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAM's Studio — Analytics</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:      #02030a;
+  --bg2:     #060812;
+  --panel:   #080c18;
+  --border:  #0d1430;
+  --border2: #1a2450;
+  --c1:  #00f5d4;  /* teal/cyan */
+  --c2:  #7b2fff;  /* purple */
+  --c3:  #ff3d71;  /* red-pink */
+  --c4:  #ffcc00;  /* gold */
+  --c5:  #00c2ff;  /* sky blue */
+  --text: #ccd4f0;
+  --dim:  #3a4570;
+  --mono: 'Space Mono', monospace;
+  --display: 'Bebas Neue', sans-serif;
+  --body: 'Inter', sans-serif;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--body);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* GRID BACKGROUND */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(0,245,212,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,245,212,.025) 1px, transparent 1px);
+  background-size:40px 40px;
+  pointer-events:none;z-index:0;
+}
+
+/* SCAN LINES */
+body::after{
+  content:'';position:fixed;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.15) 2px,rgba(0,0,0,.15) 4px);
+  pointer-events:none;z-index:0;opacity:.4;
+}
+
+/* AMBIENT */
+.glow{position:fixed;border-radius:50%;filter:blur(160px);pointer-events:none;z-index:0}
+.g1{width:600px;height:600px;background:var(--c2);opacity:.06;top:-200px;left:-100px}
+.g2{width:500px;height:500px;background:var(--c1);opacity:.05;bottom:-150px;right:-100px}
+.g3{width:300px;height:300px;background:var(--c3);opacity:.04;top:50%;right:20%}
+
+/* HEADER */
+header{
+  position:sticky;top:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 40px;
+  border-bottom:1px solid var(--border2);
+  background:rgba(2,3,10,.9);
+  backdrop-filter:blur(20px);
+}
+
+.brand{display:flex;align-items:center;gap:14px}
+.brand-icon{
+  width:40px;height:40px;border-radius:8px;
+  background:linear-gradient(135deg,var(--c2),var(--c1));
+  display:flex;align-items:center;justify-content:center;font-size:18px;
+}
+.brand-name{
+  font-family:var(--display);
+  font-size:24px;letter-spacing:2px;
+  color:var(--c1);
+  text-shadow:0 0 20px rgba(0,245,212,.4);
+}
+.brand-sub{font-size:11px;color:var(--dim);font-family:var(--mono);margin-top:-2px;letter-spacing:1px}
+
+.header-right{display:flex;align-items:center;gap:12px}
+
+.live-badge{
+  display:flex;align-items:center;gap:7px;
+  padding:7px 14px;border-radius:100px;
+  border:1px solid var(--border2);
+  font-family:var(--mono);font-size:11px;letter-spacing:1px;
+  color:var(--dim);background:var(--panel);
+  transition:all .3s;
+}
+.live-badge.active{
+  border-color:rgba(0,245,212,.4);
+  color:var(--c1);
+  background:rgba(0,245,212,.05);
+  box-shadow:0 0 16px rgba(0,245,212,.1);
+}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--dim)}
+.live-badge.active .live-dot{background:var(--c1);animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+
+.back-btn{
+  display:flex;align-items:center;gap:6px;
+  padding:7px 14px;border-radius:100px;
+  border:1px solid var(--border2);
+  font-family:var(--mono);font-size:11px;
+  color:var(--dim);background:var(--panel);
+  text-decoration:none;cursor:pointer;
+  transition:all .2s;
+}
+.back-btn:hover{color:var(--c5);border-color:rgba(0,194,255,.4)}
+
+.refresh-btn{
+  padding:7px 14px;border-radius:100px;
+  border:1px solid var(--border2);
+  font-family:var(--mono);font-size:11px;
+  color:var(--dim);background:var(--panel);
+  cursor:pointer;transition:all .2s;
+}
+.refresh-btn:hover{color:var(--c1);border-color:rgba(0,245,212,.4)}
+
+/* MAIN */
+main{
+  position:relative;z-index:10;
+  padding:32px 40px;
+  display:grid;
+  gap:24px;
+}
+
+/* LIVE STATUS BANNER */
+.live-banner{
+  background:var(--panel);
+  border:1px solid var(--border2);
+  border-radius:16px;
+  padding:24px 32px;
+  display:flex;align-items:center;justify-content:space-between;
+  gap:24px;
+  transition:border-color .3s,box-shadow .3s;
+}
+.live-banner.running{
+  border-color:rgba(0,245,212,.3);
+  box-shadow:0 0 40px rgba(0,245,212,.06);
+}
+
+.banner-left{display:flex;align-items:center;gap:20px}
+.banner-indicator{
+  width:56px;height:56px;border-radius:14px;
+  background:rgba(0,245,212,.06);border:1px solid rgba(0,245,212,.15);
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px;position:relative;
+}
+.banner-indicator.running::after{
+  content:'';position:absolute;inset:-6px;
+  border-radius:18px;
+  border:1px solid rgba(0,245,212,.2);
+  animation:ring 2s linear infinite;
+}
+@keyframes ring{
+  0%{transform:scale(1);opacity:.6}
+  100%{transform:scale(1.2);opacity:0}
+}
+
+.banner-text h2{font-size:20px;font-weight:600;margin-bottom:4px}
+.banner-text p{font-size:13px;color:var(--dim);font-family:var(--mono)}
+
+.banner-right{display:flex;align-items:center;gap:20px}
+.banner-stat{text-align:center}
+.banner-stat-num{font-family:var(--display);font-size:36px;color:var(--c1);line-height:1;text-shadow:0 0 20px rgba(0,245,212,.3)}
+.banner-stat-lbl{font-size:11px;color:var(--dim);font-family:var(--mono);letter-spacing:.8px;text-transform:uppercase;margin-top:2px}
+.sep{width:1px;height:48px;background:var(--border2)}
+
+/* PROGRESS BAR (live) */
+.progress-section{display:flex;flex-direction:column;gap:8px;min-width:220px}
+.progress-label{
+  display:flex;justify-content:space-between;
+  font-family:var(--mono);font-size:11px;color:var(--dim);
+}
+.progress-track{
+  height:6px;background:var(--border2);border-radius:100px;overflow:hidden;
+}
+.progress-fill{
+  height:100%;border-radius:100px;
+  background:linear-gradient(90deg,var(--c2),var(--c1));
+  transition:width .8s ease;
+  width:0%;
+}
+.progress-fill.shimmer{
+  background:linear-gradient(90deg,var(--c2),var(--c1),var(--c5),var(--c1),var(--c2));
+  background-size:200% 100%;
+  animation:shimmer 1.5s linear infinite;
+}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* BIG STATS GRID */
+.stats-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:16px;
+}
+
+.stat-card{
+  background:var(--panel);
+  border:1px solid var(--border2);
+  border-radius:14px;
+  padding:24px 20px;
+  display:flex;flex-direction:column;
+  gap:10px;
+  position:relative;overflow:hidden;
+  transition:border-color .3s,transform .2s;
+}
+.stat-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+.stat-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+}
+.stat-card.c1::before{background:var(--c1)}
+.stat-card.c2::before{background:var(--c2)}
+.stat-card.c3::before{background:var(--c3)}
+.stat-card.c4::before{background:var(--c4)}
+.stat-card.c5::before{background:var(--c5)}
+
+.stat-icon{font-size:22px;opacity:.8}
+.stat-num{
+  font-family:var(--display);
+  font-size:52px;line-height:1;
+  letter-spacing:1px;
+}
+.c1 .stat-num{color:var(--c1);text-shadow:0 0 30px rgba(0,245,212,.25)}
+.c2 .stat-num{color:var(--c2);text-shadow:0 0 30px rgba(123,47,255,.25)}
+.c3 .stat-num{color:var(--c3);text-shadow:0 0 30px rgba(255,61,113,.25)}
+.c4 .stat-num{color:var(--c4);text-shadow:0 0 30px rgba(255,204,0,.25)}
+.c5 .stat-num{color:var(--c5);text-shadow:0 0 30px rgba(0,194,255,.25)}
+
+.stat-label{font-size:11px;color:var(--dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:1px}
+.stat-sub{font-size:11px;color:var(--dim);margin-top:4px}
+
+/* TABLES + CHARTS ROW */
+.bottom-grid{
+  display:grid;
+  grid-template-columns:1.6fr 1fr;
+  gap:20px;
+}
+
+/* SESSIONS TABLE */
+.panel-box{
+  background:var(--panel);
+  border:1px solid var(--border2);
+  border-radius:14px;overflow:hidden;
+}
+.panel-box-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px;border-bottom:1px solid var(--border2);
+}
+.panel-box-title{
+  font-family:var(--mono);font-size:12px;color:var(--c1);
+  text-transform:uppercase;letter-spacing:2px;
+  display:flex;align-items:center;gap:8px;
+}
+.panel-box-title::before{content:'//';color:var(--dim)}
+
+table{width:100%;border-collapse:collapse}
+th{
+  font-family:var(--mono);font-size:10px;color:var(--dim);
+  text-transform:uppercase;letter-spacing:1.2px;
+  padding:10px 16px;text-align:left;
+  border-bottom:1px solid var(--border2);
+  background:rgba(255,255,255,.01);
+}
+td{
+  padding:11px 16px;font-size:12px;color:var(--text);
+  border-bottom:1px solid var(--border);
+  font-family:var(--mono);
+}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+
+.pill{
+  display:inline-flex;align-items:center;
+  padding:2px 9px;border-radius:100px;
+  font-size:10px;font-family:var(--mono);font-weight:700;
+  letter-spacing:.5px;text-transform:uppercase;
+}
+.pill.ok{background:rgba(0,245,212,.1);color:var(--c1);border:1px solid rgba(0,245,212,.2)}
+.pill.partial{background:rgba(255,204,0,.1);color:var(--c4);border:1px solid rgba(255,204,0,.2)}
+.pill.stopped{background:rgba(255,61,113,.1);color:var(--c3);border:1px solid rgba(255,61,113,.2)}
+.pill.running{background:rgba(123,47,255,.1);color:var(--c2);border:1px solid rgba(123,47,255,.2);animation:blink 1.4s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* USER CHART */
+.user-list{padding:16px}
+.user-row{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 0;border-bottom:1px solid var(--border);
+}
+.user-row:last-child{border-bottom:none}
+.user-name{
+  font-family:var(--mono);font-size:12px;color:var(--text);
+  min-width:80px;
+}
+.user-bar-wrap{flex:1;height:6px;background:var(--border2);border-radius:100px;overflow:hidden}
+.user-bar{height:100%;border-radius:100px;background:linear-gradient(90deg,var(--c2),var(--c1));transition:width .8s ease}
+.user-count{
+  font-family:var(--mono);font-size:11px;color:var(--dim);
+  min-width:30px;text-align:right;
+}
+
+/* EMPTY */
+.empty-row{
+  padding:32px;text-align:center;
+  font-family:var(--mono);font-size:12px;color:var(--dim);
+}
+
+/* FOOTER */
+footer{
+  position:relative;z-index:10;
+  padding:16px 40px;
+  border-top:1px solid var(--border2);
+  display:flex;align-items:center;justify-content:space-between;
+  font-family:var(--mono);font-size:11px;color:var(--dim);
+}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px}
+
+/* LOADING */
+.loading-overlay{
+  position:fixed;inset:0;background:var(--bg);z-index:999;
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:20px;
+  transition:opacity .5s;
+}
+.loading-overlay.hide{opacity:0;pointer-events:none}
+.loading-spinner{
+  width:40px;height:40px;border-radius:50%;
+  border:2px solid var(--border2);
+  border-top-color:var(--c1);
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-family:var(--mono);font-size:12px;color:var(--dim);letter-spacing:2px}
+</style>
+</head>
+<body>
+
+<div class="glow g1"></div>
+<div class="glow g2"></div>
+<div class="glow g3"></div>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">LOADING ANALYTICS...</div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="brand">
+    <div class="brand-icon">📊</div>
+    <div>
+      <div class="brand-name">SAM's Studio</div>
+      <div class="brand-sub">ANALYTICS DASHBOARD</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge" id="liveBadge">
+      <div class="live-dot"></div>
+      <span id="liveBadgeText">CONNECTING...</span>
+    </div>
+    <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+    <a class="back-btn" href="flow_automation_ui.html">← Back to Studio</a>
+  </div>
+</header>
+
+<main>
+
+  <!-- LIVE STATUS BANNER -->
+  <div class="live-banner" id="liveBanner">
+    <div class="banner-left">
+      <div class="banner-indicator" id="bannerIndicator">⚡</div>
+      <div class="banner-text">
+        <h2 id="bannerTitle">Loading...</h2>
+        <p id="bannerSub" style="font-family:var(--mono)">Fetching live data...</p>
+      </div>
+    </div>
+    <div class="banner-right">
+      <div class="banner-stat">
+        <div class="banner-stat-num" id="liveCompleted">—</div>
+        <div class="banner-stat-lbl">Completed</div>
+      </div>
+      <div class="sep"></div>
+      <div class="banner-stat">
+        <div class="banner-stat-num" id="liveTotal" style="color:var(--c2)">—</div>
+        <div class="banner-stat-lbl">Total</div>
+      </div>
+      <div class="sep"></div>
+      <div class="progress-section">
+        <div class="progress-label">
+          <span>Progress</span>
+          <span id="livePct">—</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="liveFill"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BIG STATS -->
+  <div class="stats-grid">
+    <div class="stat-card c1">
+      <div class="stat-icon">🎬</div>
+      <div class="stat-num" id="statCompleted">0</div>
+      <div class="stat-label">Videos Downloaded</div>
+      <div class="stat-sub" id="statCompletedSub">All time</div>
+    </div>
+    <div class="stat-card c2">
+      <div class="stat-icon">📋</div>
+      <div class="stat-num" id="statRequested">0</div>
+      <div class="stat-label">Videos Requested</div>
+      <div class="stat-sub" id="statRequestedSub">All time</div>
+    </div>
+    <div class="stat-card c4">
+      <div class="stat-icon">🗂</div>
+      <div class="stat-num" id="statSessions">0</div>
+      <div class="stat-label">Total Sessions</div>
+      <div class="stat-sub" id="statSessionsSub">Since first run</div>
+    </div>
+    <div class="stat-card c3">
+      <div class="stat-icon">🔁</div>
+      <div class="stat-num" id="statRetries">0</div>
+      <div class="stat-label">Auto Retries</div>
+      <div class="stat-sub">Retry system saves failed jobs</div>
+    </div>
+  </div>
+
+  <!-- BOTTOM GRID: sessions table + user breakdown -->
+  <div class="bottom-grid">
+
+    <!-- SESSION HISTORY -->
+    <div class="panel-box">
+      <div class="panel-box-header">
+        <div class="panel-box-title">Session History</div>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--dim)" id="sessionCount">0 sessions</span>
+      </div>
+      <div style="overflow-x:auto;max-height:380px;overflow-y:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>User</th>
+              <th>Requested</th>
+              <th>Done</th>
+              <th>Retries</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="sessionsTable">
+            <tr><td colspan="6" class="empty-row">No sessions yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- USER BREAKDOWN -->
+    <div class="panel-box">
+      <div class="panel-box-header">
+        <div class="panel-box-title">By User</div>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--dim)" id="userCount">0 users</span>
+      </div>
+      <div class="user-list" id="userList">
+        <div class="empty-row">No data yet</div>
+      </div>
+
+      <!-- SUCCESS RATE -->
+      <div style="padding:16px;border-top:1px solid var(--border2)">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px">// Success Rate</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:52px;color:var(--c1);text-shadow:0 0 30px rgba(0,245,212,.25);line-height:1" id="successRate">—%</div>
+          <div style="flex:1">
+            <div style="height:8px;background:var(--border2);border-radius:100px;overflow:hidden;margin-bottom:6px">
+              <div id="successBar" style="height:100%;border-radius:100px;background:linear-gradient(90deg,var(--c3),var(--c4),var(--c1));transition:width .8s ease;width:0%"></div>
+            </div>
+            <div style="font-size:11px;color:var(--dim);font-family:var(--mono)" id="successDetail">— of — completed</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</main>
+
+<footer>
+  <span>SAM's Studio Flow Automation — Analytics</span>
+  <span id="lastUpdated">Never updated</span>
+</footer>
+
+<script>
+const SERVER = 'http://192.168.29.244:5000';
+let refreshTimer = null;
+
+async function loadData() {
+  try {
+    const res = await fetch(`${SERVER}/analytics`);
+    const d = await res.json();
+    renderAll(d);
+    document.getElementById('liveBadge').classList.add('active');
+    document.getElementById('liveBadgeText').textContent = 'LIVE';
+    document.getElementById('lastUpdated').textContent = `Updated: ${new Date().toLocaleTimeString()}`;
+  } catch (err) {
+    document.getElementById('liveBadge').classList.remove('active');
+    document.getElementById('liveBadgeText').textContent = 'OFFLINE';
+    document.getElementById('bannerTitle').textContent = 'Server Offline';
+    document.getElementById('bannerSub').textContent = 'Cannot reach server — is server.py running?';
+  } finally {
+    document.getElementById('loadingOverlay').classList.add('hide');
+  }
+}
+
+function renderAll(d) {
+  const live     = d.live || {};
+  const sessions = (d.sessions || []).slice().reverse(); // newest first
+
+  // ── LIVE BANNER ─────────────────────────────────────────────────────────
+  const banner    = document.getElementById('liveBanner');
+  const indicator = document.getElementById('bannerIndicator');
+  if (live.running) {
+    banner.classList.add('running');
+    indicator.classList.add('running');
+    indicator.textContent = '⚡';
+    document.getElementById('bannerTitle').textContent = 'Automation Running';
+    document.getElementById('bannerSub').textContent   = `Video ${live.current} of ${live.total} — generating in Brave...`;
+  } else {
+    banner.classList.remove('running');
+    indicator.classList.remove('running');
+    indicator.textContent = '💤';
+    document.getElementById('bannerTitle').textContent = 'Automation Idle';
+    document.getElementById('bannerSub').textContent   = 'No active session';
+  }
+  const pct = live.total > 0 ? Math.round(live.completed / live.total * 100) : 0;
+  document.getElementById('liveCompleted').textContent = live.completed ?? '—';
+  document.getElementById('liveTotal').textContent     = live.total ?? '—';
+  document.getElementById('livePct').textContent       = live.total > 0 ? `${pct}%` : '—';
+  document.getElementById('liveFill').style.width      = `${pct}%`;
+  document.getElementById('liveFill').classList.toggle('shimmer', live.running);
+
+  // ── BIG STATS ────────────────────────────────────────────────────────────
+  animateNum('statCompleted', d.total_videos_completed || 0);
+  animateNum('statRequested', d.total_videos_requested || 0);
+  animateNum('statSessions',  d.total_sessions || 0);
+  animateNum('statRetries',   d.total_retries || 0);
+
+  const totalReq  = d.total_videos_requested || 0;
+  const totalDone = d.total_videos_completed || 0;
+  const rate = totalReq > 0 ? Math.round(totalDone / totalReq * 100) : 0;
+  document.getElementById('successRate').textContent  = `${rate}%`;
+  document.getElementById('successBar').style.width   = `${rate}%`;
+  document.getElementById('successDetail').textContent= `${totalDone} of ${totalReq} completed`;
+
+  // ── SESSIONS TABLE ────────────────────────────────────────────────────────
+  document.getElementById('sessionCount').textContent = `${sessions.length} session${sessions.length !== 1 ? 's' : ''}`;
+  const tbody = document.getElementById('sessionsTable');
+
+  if (sessions.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-row">No sessions yet — run some automations first!</td></tr>';
+  } else {
+    tbody.innerHTML = sessions.map(s => {
+      const dt = new Date(s.started_at);
+      const timeStr = dt.toLocaleString('en-IN', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+      let pill = '';
+      if (s.videos_completed === s.videos_requested)
+        pill = '<span class="pill ok">DONE</span>';
+      else if (s.stopped_early)
+        pill = '<span class="pill stopped">STOPPED</span>';
+      else if (s.videos_failed > 0)
+        pill = '<span class="pill partial">PARTIAL</span>';
+      else
+        pill = '<span class="pill running">RUNNING</span>';
+
+      return `<tr>
+        <td>${timeStr}</td>
+        <td style="color:var(--c5)">${s.user || 'unknown'}</td>
+        <td>${s.videos_requested}</td>
+        <td style="color:var(--c1)">${s.videos_completed}</td>
+        <td style="color:var(--c4)">${s.retries || 0}</td>
+        <td>${pill}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ── USER BREAKDOWN ────────────────────────────────────────────────────────
+  const userMap = {};
+  sessions.forEach(s => {
+    const u = s.user || 'unknown';
+    if (!userMap[u]) userMap[u] = { requested: 0, completed: 0 };
+    userMap[u].requested  += s.videos_requested;
+    userMap[u].completed  += s.videos_completed;
+  });
+
+  const users = Object.entries(userMap).sort((a,b) => b[1].completed - a[1].completed);
+  document.getElementById('userCount').textContent = `${users.length} user${users.length !== 1 ? 's' : ''}`;
+  const maxVal = users.length > 0 ? Math.max(...users.map(([,v]) => v.completed)) : 1;
+
+  const userList = document.getElementById('userList');
+  if (users.length === 0) {
+    userList.innerHTML = '<div class="empty-row">No user data yet</div>';
+  } else {
+    userList.innerHTML = users.map(([name, stats]) => {
+      const barPct = maxVal > 0 ? Math.round(stats.completed / maxVal * 100) : 0;
+      return `<div class="user-row">
+        <div class="user-name">@${name}</div>
+        <div class="user-bar-wrap">
+          <div class="user-bar" style="width:${barPct}%"></div>
+        </div>
+        <div class="user-count">${stats.completed}/${stats.requested}</div>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ── ANIMATED NUMBER ─────────────────────────────────────────────────────────
+function animateNum(id, target) {
+  const el = document.getElementById(id);
+  const start = parseInt(el.textContent) || 0;
+  if (start === target) return;
+  const duration = 800;
+  const startTime = performance.now();
+  function step(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    el.textContent = Math.round(start + (target - start) * eased);
+    if (progress < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// ── AUTO REFRESH ─────────────────────────────────────────────────────────────
+function startAutoRefresh() {
+  loadData();
+  refreshTimer = setInterval(loadData, 5000); // every 5s
+}
+
+startAutoRefresh();
+</script>
+</body>
+</html>

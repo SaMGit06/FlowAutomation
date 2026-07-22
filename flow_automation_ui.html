@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flow Automation — SAM's Studio</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:          #080810;
+  --surface:     #0e0e18;
+  --card:        #13131f;
+  --border:      #252535;
+  --border-hi:   #3a3a58;
+  --vid:         #7c3aed;
+  --vid-glow:    rgba(124,58,237,.28);
+  --mus:         #0ea5e9;
+  --mus-glow:    rgba(14,165,233,.28);
+  --run:         #10b981;
+  --run-glow:    rgba(16,185,129,.28);
+  --warn:        #f59e0b;
+  --danger:      #ef4444;
+  --text:        #eeeef8;
+  --muted:       #6a6a8a;
+  --dim:         #353555;
+  --mono:        'JetBrains Mono', monospace;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Syne',sans-serif;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* NOISE */
+body::after{
+  content:'';position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.035'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:0;opacity:.5;
+}
+
+/* AMBIENT */
+.amb{position:fixed;border-radius:50%;filter:blur(130px);pointer-events:none;z-index:0;opacity:.1}
+.a1{width:500px;height:500px;background:var(--vid);top:-120px;left:-120px}
+.a2{width:400px;height:400px;background:var(--mus);bottom:-100px;right:-80px}
+
+/* HEADER */
+header{
+  position:sticky;top:0;z-index:100;
+  padding:20px 36px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);
+  background:rgba(8,8,16,.85);
+  backdrop-filter:blur(20px);
+  gap:16px;
+}
+
+.logo{display:flex;align-items:center;gap:12px}
+.logo-icon{
+  width:36px;height:36px;
+  background:linear-gradient(135deg,var(--vid),var(--mus));
+  border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;
+}
+.logo-text{font-size:19px;font-weight:800;letter-spacing:-.4px}
+.logo-text span{color:var(--vid)}
+
+/* STATUS + PROGRESS */
+.header-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+
+.status-pill{
+  display:flex;align-items:center;gap:8px;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:100px;padding:7px 14px;
+  font-size:12px;font-family:var(--mono);color:var(--muted);
+}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--dim)}
+.dot.running{background:var(--run);animation:pulse 1.2s infinite}
+.dot.done{background:var(--run)}
+.dot.error{background:var(--danger)}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+
+.progress-wrap{
+  display:none;align-items:center;gap:10px;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:100px;padding:7px 14px;
+  font-size:12px;font-family:var(--mono);color:var(--muted);
+}
+.progress-wrap.show{display:flex}
+.progress-bar-track{
+  width:100px;height:5px;background:var(--border);
+  border-radius:100px;overflow:hidden;
+}
+.progress-bar-fill{
+  height:100%;background:linear-gradient(90deg,var(--vid),var(--run));
+  border-radius:100px;transition:width .6s ease;
+  width:0%;
+}
+
+/* USER INPUT */
+.user-wrap{
+  display:flex;align-items:center;gap:8px;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:100px;padding:5px 14px;
+}
+.user-wrap span{font-size:12px;color:var(--muted);font-family:var(--mono)}
+.user-wrap input{
+  background:transparent;border:none;outline:none;
+  color:var(--text);font-family:var(--mono);font-size:12px;
+  width:100px;
+}
+
+/* ANALYTICS LINK */
+.analytics-link{
+  display:flex;align-items:center;gap:6px;
+  color:var(--muted);font-size:12px;font-family:var(--mono);
+  text-decoration:none;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:100px;padding:7px 14px;
+  transition:all .2s;cursor:pointer;
+}
+.analytics-link:hover{color:var(--mus);border-color:rgba(14,165,233,.4)}
+
+/* MAIN */
+main{
+  position:relative;z-index:10;
+  padding:28px 36px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:20px;
+}
+
+/* PANEL */
+.panel{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:16px;display:flex;flex-direction:column;
+  overflow:hidden;transition:border-color .3s;
+}
+.panel:hover{border-color:var(--border-hi)}
+
+.panel-header{
+  padding:16px 18px 13px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.panel-title{
+  display:flex;align-items:center;gap:9px;
+  font-weight:700;font-size:14px;letter-spacing:.3px;
+}
+.badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:21px;height:21px;border-radius:6px;
+  font-size:11px;font-weight:700;font-family:var(--mono);
+}
+.badge-v{background:var(--vid-glow);color:#a78bfa}
+.badge-m{background:var(--mus-glow);color:#38bdf8}
+.icon-v{color:var(--vid)}
+.icon-m{color:var(--mus)}
+
+.add-btn{
+  display:flex;align-items:center;gap:6px;
+  background:transparent;border:1px solid var(--border);
+  color:var(--muted);border-radius:8px;
+  padding:7px 11px;font-size:12px;font-family:'Syne',sans-serif;
+  font-weight:600;cursor:pointer;transition:all .2s;
+}
+.add-btn:hover{color:var(--text);border-color:var(--border-hi);background:rgba(255,255,255,.04)}
+
+/* PROMPTS LIST */
+.prompts-list{
+  flex:1;overflow-y:auto;
+  padding:14px;display:flex;flex-direction:column;gap:10px;
+  scrollbar-width:thin;scrollbar-color:var(--border) transparent;
+  max-height:420px;
+}
+
+/* PROMPT CARD */
+.prompt-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:13px;
+  display:flex;flex-direction:column;gap:9px;
+  position:relative;animation:slideIn .22s ease;
+  transition:border-color .3s;
+}
+.prompt-card.status-running{border-color:rgba(16,185,129,.5);box-shadow:0 0 12px rgba(16,185,129,.1)}
+.prompt-card.status-done{border-color:rgba(16,185,129,.25);opacity:.7}
+.prompt-card.status-failed{border-color:rgba(239,68,68,.4)}
+.prompt-card.status-stopped{border-color:rgba(245,158,11,.25);opacity:.6}
+@keyframes slideIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+
+.card-header{display:flex;align-items:center;justify-content:space-between}
+
+.prompt-num{
+  font-size:11px;font-family:var(--mono);font-weight:500;
+  color:var(--muted);letter-spacing:1px;text-transform:uppercase;
+}
+
+/* STATUS BADGE per card */
+.card-status{
+  font-size:10px;font-family:var(--mono);font-weight:600;
+  padding:2px 8px;border-radius:100px;
+  letter-spacing:.5px;text-transform:uppercase;
+  display:none;
+}
+.card-status.show{display:inline-block}
+.card-status.running{background:rgba(16,185,129,.15);color:var(--run);animation:blink 1.4s infinite}
+.card-status.done{background:rgba(16,185,129,.12);color:var(--run)}
+.card-status.failed{background:rgba(239,68,68,.12);color:var(--danger)}
+.card-status.stopped{background:rgba(245,158,11,.12);color:var(--warn)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.5}}
+
+.remove-btn{
+  background:transparent;border:none;
+  color:var(--dim);cursor:pointer;
+  padding:2px 6px;border-radius:6px;font-size:16px;
+  transition:all .2s;
+}
+.remove-btn:hover{color:var(--danger);background:rgba(239,68,68,.1)}
+
+/* CHARS */
+.chars-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.char-tag{
+  display:flex;align-items:center;gap:5px;
+  background:var(--vid-glow);border:1px solid rgba(124,58,237,.4);
+  color:#c4b5fd;border-radius:100px;padding:3px 10px 3px 8px;
+  font-size:11px;font-weight:600;animation:tagIn .15s ease;
+}
+@keyframes tagIn{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+.char-tag button{background:none;border:none;color:#a78bfa;cursor:pointer;font-size:13px;padding:0;transition:color .15s}
+.char-tag button:hover{color:var(--danger)}
+.char-input-wrap{display:flex;align-items:center;gap:6px;flex:1;min-width:110px}
+.char-at{color:var(--vid);font-family:var(--mono);font-size:13px;font-weight:600;flex-shrink:0}
+.add-char-btn{
+  background:rgba(124,58,237,.15);border:1px dashed rgba(124,58,237,.4);
+  color:#a78bfa;border-radius:100px;padding:4px 10px;
+  font-size:11px;font-family:'Syne',sans-serif;font-weight:600;
+  cursor:pointer;white-space:nowrap;transition:all .2s;
+}
+.add-char-btn:hover{background:rgba(124,58,237,.25)}
+
+/* INPUTS */
+input[type="text"],textarea{
+  background:var(--bg);border:1px solid var(--border);
+  color:var(--text);border-radius:8px;padding:8px 11px;
+  font-family:var(--mono);font-size:12px;outline:none;
+  transition:border-color .2s,box-shadow .2s;width:100%;resize:none;
+}
+input[type="text"]:focus,textarea:focus{border-color:var(--vid);box-shadow:0 0 0 3px rgba(124,58,237,.14)}
+.panel-music input[type="text"]:focus,.panel-music textarea:focus{border-color:var(--mus);box-shadow:0 0 0 3px rgba(14,165,233,.14)}
+input.char-text{padding:5px 9px;font-size:11px}
+
+.field-label{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px}
+
+/* EMPTY */
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;color:var(--dim);padding:36px 20px;text-align:center}
+.empty-icon{font-size:34px;opacity:.3}
+.empty-text{font-size:12px;line-height:1.65}
+
+/* STATS ROW */
+.stats-row{grid-column:1/-1;display:flex;gap:12px}
+.stat-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:10px;padding:12px 16px;
+  display:flex;align-items:center;gap:10px;flex:1;
+}
+.stat-num{font-size:22px;font-weight:800;font-family:var(--mono);line-height:1}
+.stat-v{color:var(--vid)}
+.stat-m{color:var(--mus)}
+.stat-t{color:var(--run)}
+.stat-label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+
+/* RUN SECTION */
+.run-section{
+  grid-column:1/-1;
+  display:flex;align-items:stretch;gap:14px;
+  flex-wrap:wrap;
+}
+
+.run-btn{
+  display:flex;align-items:center;gap:9px;
+  background:linear-gradient(135deg,var(--run),#059669);
+  border:none;color:white;border-radius:12px;
+  padding:14px 28px;
+  font-family:'Syne',sans-serif;font-size:15px;font-weight:800;
+  cursor:pointer;letter-spacing:.3px;
+  transition:all .25s;
+  box-shadow:0 4px 20px var(--run-glow);
+  white-space:nowrap;
+}
+.run-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 28px rgba(16,185,129,.4)}
+.run-btn:active:not(:disabled){transform:translateY(0)}
+.run-btn:disabled{opacity:.35;cursor:not-allowed;transform:none;box-shadow:none}
+.spin{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.stop-btn{
+  display:flex;align-items:center;gap:8px;
+  background:transparent;border:1px solid rgba(239,68,68,.4);
+  color:var(--danger);border-radius:12px;
+  padding:14px 22px;
+  font-family:'Syne',sans-serif;font-size:14px;font-weight:700;
+  cursor:pointer;transition:all .2s;white-space:nowrap;
+}
+.stop-btn:hover{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.7)}
+.stop-btn:disabled{opacity:.3;cursor:not-allowed}
+
+.clear-btn{
+  background:transparent;border:1px solid var(--border);
+  color:var(--muted);border-radius:12px;
+  padding:14px 18px;
+  font-family:'Syne',sans-serif;font-size:13px;font-weight:600;
+  cursor:pointer;transition:all .2s;white-space:nowrap;
+}
+.clear-btn:hover{border-color:var(--danger);color:var(--danger);background:rgba(239,68,68,.07)}
+
+/* LOG PANEL */
+.log-panel{
+  flex:1;min-width:260px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;overflow:hidden;
+  display:flex;flex-direction:column;
+  max-height:160px;
+}
+.log-panel-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 12px;border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.log-panel-title{font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:1px}
+.log-clear-btn{font-size:10px;font-family:var(--mono);color:var(--dim);background:none;border:none;cursor:pointer;transition:color .2s}
+.log-clear-btn:hover{color:var(--muted)}
+.log-box{
+  flex:1;overflow-y:auto;padding:8px 12px;
+  font-family:var(--mono);font-size:11px;
+  display:flex;flex-direction:column;gap:1px;
+  scrollbar-width:thin;scrollbar-color:var(--border) transparent;
+}
+.log-entry{display:flex;gap:8px;line-height:1.5}
+.log-time{color:var(--dim);flex-shrink:0}
+.log-msg{color:var(--muted)}
+.log-msg.ok{color:var(--run)}
+.log-msg.err{color:var(--danger)}
+.log-msg.info{color:#38bdf8}
+.log-msg.warn{color:var(--warn)}
+.log-sse-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:var(--dim);flex-shrink:0;margin-top:5px;
+  transition:background .3s;
+}
+.log-sse-dot.live{background:var(--run);animation:pulse 2s infinite}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:10px}
+
+/* TOAST */
+.toast-wrap{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:10px;z-index:1000}
+.toast{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:10px;padding:12px 18px;
+  font-size:12px;font-family:var(--mono);
+  animation:toastIn .3s ease, toastOut .3s ease 3s forwards;
+  max-width:320px;
+}
+.toast.ok{border-color:rgba(16,185,129,.4);color:var(--run)}
+.toast.err{border-color:rgba(239,68,68,.4);color:var(--danger)}
+.toast.warn{border-color:rgba(245,158,11,.4);color:var(--warn)}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes toastOut{to{opacity:0;transform:translateX(20px)}}
+
+/* COMPLETION MODAL */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.75);
+  backdrop-filter:blur(8px);z-index:500;
+  display:none;align-items:center;justify-content:center;
+}
+.modal-overlay.show{display:flex}
+.modal{
+  background:var(--card);border:1px solid rgba(16,185,129,.4);
+  border-radius:20px;padding:40px 48px;
+  text-align:center;max-width:460px;width:90%;
+  animation:modalIn .4s cubic-bezier(.34,1.56,.64,1);
+  box-shadow:0 0 80px rgba(16,185,129,.15);
+}
+@keyframes modalIn{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+.modal-icon{font-size:56px;margin-bottom:16px}
+.modal-title{font-size:26px;font-weight:800;margin-bottom:8px;color:var(--run)}
+.modal-sub{font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.6}
+.modal-stats{
+  display:flex;gap:20px;justify-content:center;margin-bottom:28px;
+}
+.modal-stat{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:12px 20px;
+  font-family:var(--mono);
+}
+.modal-stat-num{font-size:24px;font-weight:800;color:var(--run)}
+.modal-stat-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.modal-close{
+  background:linear-gradient(135deg,var(--run),#059669);
+  border:none;color:white;border-radius:10px;
+  padding:12px 32px;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;
+  cursor:pointer;transition:all .2s;
+}
+.modal-close:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(16,185,129,.3)}
+</style>
+</head>
+<body>
+
+<div class="amb a1"></div>
+<div class="amb a2"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🎬</div>
+    <div class="logo-text">Flow<span>Studio</span></div>
+  </div>
+
+  <div class="header-right">
+    <div class="user-wrap">
+      <span>👤</span>
+      <input type="text" id="userName" placeholder="your name" value="SAM" maxlength="30">
+    </div>
+
+    <div class="progress-wrap" id="progressWrap">
+      <span id="progressText">0/0</span>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progressFill"></div>
+      </div>
+      <span id="progressPct">0%</span>
+    </div>
+
+    <div class="status-pill">
+      <div class="dot idle" id="statusDot"></div>
+      <span id="statusText">Idle — ready</span>
+    </div>
+
+    <a class="analytics-link" href="analytics.html" target="_blank">📊 Analytics</a>
+  </div>
+</header>
+
+<main>
+
+  <!-- STATS -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-num stat-v" id="countVid">0</div>
+      <div class="stat-label">Video Prompts</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num stat-m" id="countMusic">0</div>
+      <div class="stat-label">Music Prompts</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num stat-t" id="countTotal">0</div>
+      <div class="stat-label">Total Prompts</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num stat-t" id="countPending" style="color:var(--warn)">0</div>
+      <div class="stat-label">Pending</div>
+    </div>
+  </div>
+
+  <!-- VIDEO PANEL -->
+  <div class="panel" id="vidPanel">
+    <div class="panel-header">
+      <div class="panel-title">
+        <span class="icon-v">▶</span>
+        Video Prompts
+        <div class="badge badge-v" id="vidBadge">0</div>
+      </div>
+      <button class="add-btn" onclick="addVideoPrompt()">
+        <span style="font-size:15px">+</span> Add Scene
+      </button>
+    </div>
+    <div class="prompts-list" id="vidList">
+      <div class="empty" id="vidEmpty">
+        <div class="empty-icon">🎥</div>
+        <div class="empty-text">No scenes yet.<br>Click "Add Scene" to start.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MUSIC PANEL -->
+  <div class="panel panel-music" id="musicPanel">
+    <div class="panel-header">
+      <div class="panel-title">
+        <span class="icon-m">♪</span>
+        Music Prompts
+        <div class="badge badge-m" id="musicBadge">0</div>
+      </div>
+      <button class="add-btn" onclick="addMusicPrompt()" style="color:#38bdf8;border-color:rgba(14,165,233,.3)">
+        <span style="font-size:15px">+</span> Add Track
+      </button>
+    </div>
+    <div class="prompts-list" id="musicList">
+      <div class="empty" id="musicEmpty">
+        <div class="empty-icon">🎵</div>
+        <div class="empty-text">No music prompts yet.<br>Click "Add Track" to start.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RUN SECTION -->
+  <div class="run-section">
+    <button class="run-btn" id="runBtn" onclick="runAutomation()" disabled>
+      <span id="runIcon">⚡</span>
+      <span id="runLabel">Run Automation</span>
+    </button>
+
+    <button class="stop-btn" id="stopBtn" onclick="stopAutomation()" disabled>
+      ⛔ Stop
+    </button>
+
+    <button class="clear-btn" onclick="clearAll()">🗑 Clear All</button>
+
+    <button class="clear-btn" onclick="clearDone()" style="border-color:rgba(16,185,129,.25);color:var(--run)">
+      ✓ Clear Done
+    </button>
+
+    <div class="log-panel">
+      <div class="log-panel-header">
+        <span class="log-panel-title">
+          <span class="log-sse-dot" id="sseDot"></span>
+          &nbsp;Live Logs
+        </span>
+        <button class="log-clear-btn" onclick="clearLogs()">clear</button>
+      </div>
+      <div class="log-box" id="logBox">
+        <div class="log-entry">
+          <span class="log-time">--:--:--</span>
+          <span class="log-msg info">Ready. Add scenes and hit Run.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- COMPLETION MODAL -->
+<div class="modal-overlay" id="doneModal">
+  <div class="modal">
+    <div class="modal-icon">🎉</div>
+    <div class="modal-title">All Done!</div>
+    <div class="modal-sub" id="doneModalSub">All videos have been generated and downloaded.</div>
+    <div class="modal-stats" id="doneModalStats"></div>
+    <button class="modal-close" onclick="closeDoneModal()">Close</button>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toasts"></div>
+
+<script>
+// ─── CONFIG ────────────────────────────────────────────────────────────────
+const SERVER = 'http://192.168.29.244:5000';
+
+// ─── STATE ─────────────────────────────────────────────────────────────────
+let videoPrompts  = [];   // {id, characters[], prompt, status: pending|running|done|failed|stopped}
+let musicPrompts  = [];
+let vidIdCounter  = 0;
+let musicIdCounter = 0;
+let isRunning     = false;
+let sseSource     = null;
+
+// ─── SSE SETUP ─────────────────────────────────────────────────────────────
+function connectSSE() {
+  if (sseSource) { sseSource.close(); }
+
+  sseSource = new EventSource(`${SERVER}/stream`);
+
+  sseSource.onopen = () => {
+    document.getElementById('sseDot').classList.add('live');
+  };
+
+  sseSource.onmessage = (e) => {
+    let data;
+    try { data = JSON.parse(e.data); } catch { return; }
+    if (data.ping) return;
+
+    // ── Handle typed events ───────────────────────────────────────────────
+    if (data.event) {
+      handleServerEvent(data.event, data.data || {});
+    }
+
+    // ── Render log entry ──────────────────────────────────────────────────
+    if (data.msg && !data.event) {
+      addLog(data.msg, data.level || 'info', data.time);
+    } else if (data.event === 'all_done' || data.event === 'video_done' || data.event === 'video_start') {
+      // log is already added via server add_log
+    }
+    if (data.level !== 'event') {
+      addLog(data.msg, data.level || 'info', data.time);
+    }
+  };
+
+  sseSource.onerror = () => {
+    document.getElementById('sseDot').classList.remove('live');
+    setTimeout(connectSSE, 3000); // reconnect
+  };
+}
+
+// ─── SERVER EVENTS ──────────────────────────────────────────────────────────
+function handleServerEvent(event, data) {
+  switch (event) {
+
+    case 'video_start':
+      setPromptStatus(data.vid_id, 'running');
+      updateProgress(data.index, data.total, 0);
+      break;
+
+    case 'video_done':
+      setPromptStatus(data.vid_id, 'done');
+      updateProgress(data.completed, data.total, data.pct);
+      break;
+
+    case 'video_failed':
+      setPromptStatus(data.vid_id, 'failed');
+      toast(`⚠ Video failed — see logs`, 'err');
+      break;
+
+    case 'video_stopped':
+      setPromptStatus(data.vid_id, 'stopped');
+      break;
+
+    case 'video_retry':
+      toast(`🔁 Retrying video (attempt ${data.attempt}/3)...`, 'warn');
+      break;
+
+    case 'all_done':
+      handleAllDone(data);
+      break;
+
+    case 'fatal_error':
+      toast(`💥 Fatal: ${data.error}`, 'err');
+      resetRunningState();
+      break;
+  }
+}
+
+// ─── ALL DONE ───────────────────────────────────────────────────────────────
+function handleAllDone(data) {
+  resetRunningState();
+  setStatus('done', `Done — ${data.completed}/${data.total} completed`);
+  updateProgress(data.completed, data.total, 100);
+
+  // Update modal
+  document.getElementById('doneModalSub').textContent =
+    `${data.completed} video${data.completed !== 1 ? 's' : ''} generated and downloaded to your Flow folder.`;
+  document.getElementById('doneModalStats').innerHTML = `
+    <div class="modal-stat">
+      <div class="modal-stat-num">${data.completed}</div>
+      <div class="modal-stat-lbl">Downloaded</div>
+    </div>
+    ${data.failed ? `<div class="modal-stat">
+      <div class="modal-stat-num" style="color:var(--danger)">${data.failed}</div>
+      <div class="modal-stat-lbl">Failed</div>
+    </div>` : ''}
+    <div class="modal-stat">
+      <div class="modal-stat-num">${data.total}</div>
+      <div class="modal-stat-lbl">Total</div>
+    </div>
+  `;
+  document.getElementById('doneModal').classList.add('show');
+
+  // Browser notification
+  if (Notification.permission === 'granted') {
+    new Notification('🎉 Flow Automation Done!', {
+      body: `${data.completed}/${data.total} videos downloaded.`,
+    });
+  }
+}
+
+function closeDoneModal() {
+  document.getElementById('doneModal').classList.remove('show');
+}
+
+// ─── PER-PROMPT STATUS ─────────────────────────────────────────────────────
+function setPromptStatus(vid_id, status) {
+  const vp = videoPrompts.find(v => v.id === vid_id);
+  if (!vp) return;
+  vp.status = status;
+  // Update card DOM without full re-render
+  const card = document.getElementById(`vpc-${vid_id}`);
+  if (!card) return;
+  card.className = `prompt-card status-${status}`;
+  const badge = card.querySelector('.card-status');
+  if (badge) {
+    badge.textContent = statusLabel(status);
+    badge.className = `card-status show ${status}`;
+  }
+  updateStats();
+}
+
+function statusLabel(s) {
+  return {running:'● Generating',done:'✓ Done',failed:'✗ Failed',stopped:'⛔ Stopped',pending:''}[s] || s;
+}
+
+// ─── VIDEO PROMPTS ──────────────────────────────────────────────────────────
+function addVideoPrompt() {
+  const id = ++vidIdCounter;
+  videoPrompts.push({ id, characters: [], prompt: '', status: 'pending' });
+  renderVideoList();
+  updateStats();
+}
+
+function removeVideoPrompt(id) {
+  if (isRunning) { toast('Cannot remove while running', 'err'); return; }
+  videoPrompts = videoPrompts.filter(v => v.id !== id);
+  renderVideoList();
+  updateStats();
+}
+
+function addCharacter(vidId) {
+  const inp = document.getElementById(`ci-${vidId}`);
+  const name = inp.value.trim();
+  if (!name) return;
+  const vp = videoPrompts.find(v => v.id === vidId);
+  if (vp && !vp.characters.includes(name)) {
+    vp.characters.push(name);
+    renderVideoList();
+  }
+  inp.value = '';
+}
+
+function removeCharacter(vidId, char) {
+  const vp = videoPrompts.find(v => v.id === vidId);
+  if (vp) { vp.characters = vp.characters.filter(c => c !== char); renderVideoList(); }
+}
+
+function updateVideoPrompt(vidId, val) {
+  const vp = videoPrompts.find(v => v.id === vidId);
+  if (vp) vp.prompt = val;
+  updateRunBtn();
+}
+
+function renderVideoList() {
+  const list  = document.getElementById('vidList');
+  const empty = document.getElementById('vidEmpty');
+
+  if (videoPrompts.length === 0) {
+    list.innerHTML = '';
+    list.appendChild(empty);
+    return;
+  }
+
+  list.innerHTML = videoPrompts.map((vp, i) => {
+    const locked = ['running','done','failed','stopped'].includes(vp.status);
+    return `
+    <div class="prompt-card status-${vp.status}" id="vpc-${vp.id}">
+      <div class="card-header">
+        <span class="prompt-num">SCENE ${String(i+1).padStart(2,'0')}</span>
+        <span class="card-status ${vp.status !== 'pending' ? 'show '+vp.status : ''}">${statusLabel(vp.status)}</span>
+        <button class="remove-btn" onclick="removeVideoPrompt(${vp.id})" ${locked?'disabled style="opacity:.3;cursor:default"':''}>×</button>
+      </div>
+
+      <div>
+        <div class="field-label">Characters</div>
+        <div class="chars-row">
+          ${vp.characters.map(c => `
+            <div class="char-tag">
+              <span>@${c}</span>
+              ${!locked ? `<button onclick="removeCharacter(${vp.id},'${c}')">×</button>` : ''}
+            </div>`).join('')}
+          ${!locked ? `
+            <div class="char-input-wrap">
+              <span class="char-at">@</span>
+              <input type="text" class="char-text" id="ci-${vp.id}" placeholder="Character name"
+                onkeydown="if(event.key==='Enter')addCharacter(${vp.id})" style="min-width:90px;flex:1">
+            </div>
+            <button class="add-char-btn" onclick="addCharacter(${vp.id})">+ Add</button>
+          ` : ''}
+        </div>
+      </div>
+
+      <div>
+        <div class="field-label">Prompt</div>
+        <textarea rows="3"
+          placeholder="Describe the scene..."
+          oninput="updateVideoPrompt(${vp.id},this.value)"
+          ${locked ? 'readonly style="opacity:.6"' : ''}
+        >${vp.prompt}</textarea>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('vidBadge').textContent = videoPrompts.length;
+  updateRunBtn();
+}
+
+// ─── MUSIC PROMPTS ──────────────────────────────────────────────────────────
+function addMusicPrompt() {
+  const id = ++musicIdCounter;
+  musicPrompts.push({ id, prompt: '' });
+  renderMusicList();
+  updateStats();
+}
+
+function removeMusicPrompt(id) {
+  musicPrompts = musicPrompts.filter(m => m.id !== id);
+  renderMusicList();
+  updateStats();
+}
+
+function updateMusicPrompt(id, val) {
+  const mp = musicPrompts.find(m => m.id === id);
+  if (mp) mp.prompt = val;
+}
+
+function renderMusicList() {
+  const list  = document.getElementById('musicList');
+  const empty = document.getElementById('musicEmpty');
+
+  if (musicPrompts.length === 0) {
+    list.innerHTML = '';
+    list.appendChild(empty);
+    return;
+  }
+
+  list.innerHTML = musicPrompts.map((mp, i) => `
+    <div class="prompt-card" id="mpc-${mp.id}">
+      <div class="card-header">
+        <span class="prompt-num" style="color:#0ea5e9">TRACK ${String(i+1).padStart(2,'0')}</span>
+        <button class="remove-btn" onclick="removeMusicPrompt(${mp.id})">×</button>
+      </div>
+      <div>
+        <div class="field-label">Music Prompt</div>
+        <textarea rows="4"
+          placeholder="Describe the music... (e.g. Epic orchestral, ancient Middle Eastern, emotional, 120bpm)"
+          oninput="updateMusicPrompt(${mp.id},this.value)"
+          style="border-color:rgba(14,165,233,.25)"
+        >${mp.prompt}</textarea>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('musicBadge').textContent = musicPrompts.length;
+  updateRunBtn();
+}
+
+// ─── STATS ──────────────────────────────────────────────────────────────────
+function updateStats() {
+  const pending = videoPrompts.filter(v => v.status === 'pending' && v.prompt.trim()).length;
+  document.getElementById('countVid').textContent   = videoPrompts.length;
+  document.getElementById('countMusic').textContent = musicPrompts.length;
+  document.getElementById('countTotal').textContent = videoPrompts.length + musicPrompts.length;
+  document.getElementById('countPending').textContent = pending;
+  updateRunBtn();
+}
+
+function updateRunBtn() {
+  const hasPending = videoPrompts.some(v => v.status === 'pending' && v.prompt.trim().length > 0);
+  document.getElementById('runBtn').disabled  = !hasPending || isRunning;
+  document.getElementById('stopBtn').disabled = !isRunning;
+}
+
+// ─── PROGRESS BAR ────────────────────────────────────────────────────────────
+function updateProgress(current, total, pct) {
+  document.getElementById('progressText').textContent = `${current}/${total}`;
+  document.getElementById('progressPct').textContent  = `${pct}%`;
+  document.getElementById('progressFill').style.width = `${pct}%`;
+}
+
+// ─── CLEAR ───────────────────────────────────────────────────────────────────
+function clearAll() {
+  if (isRunning) return toast('Stop automation first', 'err');
+  videoPrompts = []; musicPrompts = [];
+  renderVideoList(); renderMusicList();
+  updateStats();
+  addLog('All prompts cleared', 'warn');
+}
+
+function clearDone() {
+  videoPrompts = videoPrompts.filter(v => !['done','failed','stopped'].includes(v.status));
+  renderVideoList();
+  updateStats();
+  addLog('Cleared completed/failed/stopped scenes', 'info');
+}
+
+function clearLogs() {
+  document.getElementById('logBox').innerHTML = '';
+}
+
+// ─── RUN ─────────────────────────────────────────────────────────────────────
+async function runAutomation() {
+  if (isRunning) return;
+
+  // Only send PENDING prompts
+  const toSend = videoPrompts
+    .filter(v => v.status === 'pending' && v.prompt.trim().length > 0)
+    .map(v => ({ id: v.id, characters: v.characters, prompt: v.prompt.trim() }));
+
+  if (toSend.length === 0) {
+    toast('No pending prompts to run', 'err'); return;
+  }
+
+  const userName = document.getElementById('userName').value.trim() || 'unknown';
+
+  isRunning = true;
+  setStatus('running', `Running — ${toSend.length} video${toSend.length > 1 ? 's' : ''}...`);
+  document.getElementById('runIcon').classList.add('spin');
+  document.getElementById('runLabel').textContent = 'Running...';
+  document.getElementById('runBtn').disabled  = true;
+  document.getElementById('stopBtn').disabled = false;
+  document.getElementById('progressWrap').classList.add('show');
+  updateProgress(0, toSend.length, 0);
+
+  addLog(`Sending ${toSend.length} scene(s) to server...`, 'info');
+
+  // Request browser notification permission
+  if (Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+
+  try {
+    const res = await fetch(`${SERVER}/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ videos: toSend, user: userName }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Server ${res.status}`);
+    }
+
+    const data = await res.json();
+    addLog(`✓ Automation started! Session: ${data.session_id?.slice(0,8)}`, 'ok');
+    toast(`Started — ${toSend.length} video${toSend.length > 1 ? 's' : ''} queued 🚀`, 'ok');
+
+  } catch (err) {
+    addLog(`✗ Error: ${err.message}`, 'err');
+    toast('Could not reach server. Is server.py running?', 'err');
+    resetRunningState();
+  }
+}
+
+// ─── STOP ────────────────────────────────────────────────────────────────────
+async function stopAutomation() {
+  try {
+    addLog('Sending stop signal...', 'warn');
+    const res = await fetch(`${SERVER}/stop`, { method: 'POST' });
+    const data = await res.json();
+
+    if (data.status === 'not_running') {
+      toast('Nothing is running', 'warn');
+      resetRunningState();
+      return;
+    }
+
+    toast('Stop signal sent — finishing current video...', 'warn');
+    addLog('⛔ Stop signal sent. Will stop after current video.', 'warn');
+    setStatus('idle', 'Stopping...');
+
+    // Reset UI — server will send video_stopped event for each pending prompt
+    resetRunningState();
+
+    // Mark any still-running prompts as stopped
+    videoPrompts.forEach(vp => {
+      if (vp.status === 'running') {
+        vp.status = 'stopped';
+      }
+    });
+    renderVideoList();
+    updateStats();
+
+  } catch (err) {
+    toast('Could not reach server', 'err');
+    resetRunningState();
+  }
+}
+
+// ─── RESET RUNNING STATE ─────────────────────────────────────────────────────
+function resetRunningState() {
+  isRunning = false;
+  document.getElementById('runIcon').classList.remove('spin');
+  document.getElementById('runLabel').textContent = 'Run Automation';
+  document.getElementById('stopBtn').disabled = true;
+  document.getElementById('progressWrap').classList.remove('show');
+  updateRunBtn();
+}
+
+// ─── UI HELPERS ──────────────────────────────────────────────────────────────
+function setStatus(type, text) {
+  document.getElementById('statusDot').className  = `dot ${type}`;
+  document.getElementById('statusText').textContent = text;
+}
+
+function addLog(msg, level = 'info', time = null) {
+  const box = document.getElementById('logBox');
+  const now = new Date();
+  const t = time || `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `<span class="log-time">${t}</span><span class="log-msg ${level}">${msg}</span>`;
+  box.appendChild(entry);
+  // Keep max 150 entries
+  while (box.children.length > 150) box.removeChild(box.firstChild);
+  box.scrollTop = box.scrollHeight;
+}
+
+function toast(msg, type = 'ok') {
+  const wrap = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+connectSSE();
+
+// Sync state from server on load (in case page reloaded mid-run)
+(async () => {
+  try {
+    const res = await fetch(`${SERVER}/status`);
+    const s = await res.json();
+    if (s.running) {
+      isRunning = true;
+      setStatus('running', `Running — video ${s.current}/${s.total}...`);
+      document.getElementById('runIcon').classList.add('spin');
+      document.getElementById('runLabel').textContent = 'Running...';
+      document.getElementById('progressWrap').classList.add('show');
+      updateProgress(s.completed, s.total, s.pct);
+      document.getElementById('stopBtn').disabled = false;
+      document.getElementById('runBtn').disabled  = true;
+      addLog('Reconnected to running session', 'warn');
+    }
+  } catch {}
+})();
+</script>
+</body>
+</html>
